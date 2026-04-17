@@ -27,6 +27,10 @@ All notable changes to TazUO will be recorded here.
 ### Fixes
 * Fix for latest UO Publish causing a crash in animation loading - ([bittiez](https://github.com/bittiez))
 * SOS Gump ID now supports entering id as both hex and int(0x0000, or 0000 directly) - ([bittiez](https://github.com/bittiez))
+* Fixed a rare crash that could occur when receiving chat messages during login/logout - [P.R 455](https://github.com/PlayTazUO/TazUO/pull/455) ([yuval-po](https://github.com/yuval-po))
+* Fixed a rare crash that could occur during login due - ([yuval-po](https://github.com/yuval-po))
+* Fixed a crash that occured when clicking an empty `Combobox` - [P.R 451](https://github.com/PlayTazUO/TazUO/pull/451) ([yuval-po](https://github.com/yuval-po))
+* Dramatically reduced memory footprint and load times for system fonts - [P.R 446](https://github.com/PlayTazUO/TazUO/pull/446) ([yuval-po](https://github.com/yuval-po))
 
 ## V5.1.0
 

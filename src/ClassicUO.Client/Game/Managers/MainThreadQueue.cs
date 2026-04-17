@@ -120,7 +120,7 @@ public static class MainThreadQueue
 
     /// <summary>
     /// This will not wait for the returned result.
-    /// If a cancellation token is provided, the action is skipped at execution time if cancelled.
+    /// If a cancellation token is provided, the action is skipped at execution time if canceled.
     /// </summary>
     public static void InvokeOnMainThread(Action action, CancellationToken? cancellationToken = null)
     {

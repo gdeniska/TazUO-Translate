@@ -308,7 +308,7 @@ namespace ClassicUO.Network
 
         private void OnNetClientConnected(object sender, EventArgs e)
         {
-            Log.Info("[HandShake] Connected!");
+            Log.Info("Connected!");
             SetLoginStep(LoginSteps.VerifyingAccount);
 
             uint address = AsyncNetClient.Socket.LocalIP;
