@@ -407,7 +407,7 @@ namespace ClassicUO.Game.UI.Controls
         /// <returns>A <b>reference</b> to the relevant static layers order member</returns>
         private Layer[] GetLayers(Mobile mob)
         {
-            const int EVENTINE_CLOAK = 0xA413;
+            const int CLOAK_GRAPHIC = 0xA413;
 
             Item cloak = mob.FindItemByLayer(Layer.Cloak);
             Item robe = mob.FindItemByLayer(Layer.Robe);
@@ -419,7 +419,7 @@ namespace ClassicUO.Game.UI.Controls
 
                 if (cloak.ItemData.IsContainer ||
                     (Settings.GlobalSettings.CustomServer == Settings.CustomServers.Eventine &&
-                     cloak.Graphic == EVENTINE_CLOAK)
+                     cloak.Graphic == CLOAK_GRAPHIC)
                    )
                     return _layerOrderQuiverFix;
 
@@ -434,7 +434,7 @@ namespace ClassicUO.Game.UI.Controls
 
 
             bool isEventineCloak = Settings.GlobalSettings.CustomServer == Settings.CustomServers.Eventine
-                                   && Client.Game.UO.GameCursor.ItemHold.Graphic == EVENTINE_CLOAK;
+                                   && Client.Game.UO.GameCursor.ItemHold.Graphic == CLOAK_GRAPHIC;
 
             return Client.Game.UO.GameCursor.ItemHold.ItemData.IsContainer || isEventineCloak
                 ? _layerOrderQuiverFix
