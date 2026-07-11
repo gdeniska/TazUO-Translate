@@ -26,7 +26,10 @@ internal static class UpdateName
 
         if (entity != null)
         {
-            entity.Name = name;
+            if (entity is Item item)
+                world.OPL.SetEntityName(item, name);
+            else
+                entity.Name = name;
 
             if (
                 serial == world.Player.Serial

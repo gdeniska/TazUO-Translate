@@ -35,9 +35,13 @@ internal static class BookData
                     int index = pageNum * ModernBookGump.MAX_BOOK_LINES + line;
 
                     if (index < gump.BookLines.Length)
-                        gump.BookLines[index] = ModernBookGump.IsNewBook
+                    {
+                        string source = ModernBookGump.IsNewBook
                             ? p.ReadUTF8(true)
                             : p.ReadASCII();
+                        gump.BookLines[index] = source;
+                        gump.QueueServerPageTranslation(pageNum, line, source);
+                    }
                     else
                         Log.Error(
                             "BOOKGUMP: The server is sending a page number GREATER than the allowed number of pages in BOOK!"

@@ -2,7 +2,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using ClassicUO.Configuration;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Input;
@@ -27,6 +30,11 @@ namespace ClassicUO.Game.UI.Gumps
 
         private GumpPic _forwardGumpPic, _backwardGumpPic;
         private StbTextBox _titleTextBox, _authorTextBox;
+        private readonly Dictionary<int, TranslatedBookLine> _translatedBookLines = new();
+        private string _originalTranslatedTitle;
+        private string _translatedTitle;
+        private string _originalTranslatedAuthor;
+        private string _translatedAuthor;
 
         public ModernBookGump
         (
@@ -45,8 +53,11 @@ namespace ClassicUO.Game.UI.Gumps
             BookPageCount = page_count;
             IsEditable = is_editable;
             UseNewHeader = !old_packet;
+            LocalTranslationService.Instance.CacheInvalidated += RestoreBookTranslations;
+            LocalTranslationService.Instance.TranslationDisplayDisabled += RestoreBookTranslations;
 
             BuildGump(title, author);
+            QueueServerHeaderTranslation(title, author);
         }
 
         internal string[] BookLines => _bookPage._pageLines;
@@ -101,6 +112,136 @@ namespace ClassicUO.Game.UI.Gumps
             _bookPage.CaretIndex = 0;
             _bookPage.UpdatePageCoords();
             _bookPage._ServerUpdate = false;
+        }
+
+        internal void QueueServerPageTranslation(int page, int line, string source)
+        {
+            int index = page * MAX_BOOK_LINES + line;
+            _translatedBookLines.Remove(index);
+
+            if (ProfileManager.CurrentProfile?.LocalTranslationEnabled != true
+                || !ProfileManager.CurrentProfile.LocalTranslationBooks
+                           || !LocalTranslationService.ShouldTranslate(source))
+                return;
+
+            long cacheGeneration = LocalTranslationService.Instance.CacheGeneration;
+            if (LocalTranslationService.Instance.TryGetCached(source, TranslationScenario.Book, out string cached))
+            {
+                MainThreadQueue.EnqueueAction(() => ApplyTranslatedBookLine(page, line, source, cached, cacheGeneration));
+                return;
+            }
+
+            _ = TranslateBookLineAsync(page, line, source, cacheGeneration);
+        }
+
+        private async Task TranslateBookLineAsync(int page, int line, string source, long cacheGeneration)
+        {
+            string translated = await LocalTranslationService.Instance.TranslateAsync(source, TranslationScenario.Book).ConfigureAwait(false);
+            if (string.Equals(source, translated, StringComparison.Ordinal))
+                return;
+
+            MainThreadQueue.EnqueueAction(() => ApplyTranslatedBookLine(page, line, source, translated, cacheGeneration));
+        }
+
+        private void ApplyTranslatedBookLine(int page, int line, string source, string translated, long cacheGeneration)
+        {
+            int index = page * MAX_BOOK_LINES + line;
+            if (IsDisposed || cacheGeneration != LocalTranslationService.Instance.CacheGeneration
+                || ProfileManager.CurrentProfile?.LocalTranslationEnabled != true
+                || !ProfileManager.CurrentProfile.LocalTranslationBooks
+                || index < 0 || index >= BookLines.Length
+                || !string.Equals(BookLines[index]?.TrimEnd('\n'), source, StringComparison.Ordinal))
+                return;
+
+            BookLines[index] = translated;
+            _translatedBookLines[index] = new TranslatedBookLine(source, translated);
+            ServerSetBookText();
+        }
+
+        private void QueueServerHeaderTranslation(string title, string author)
+        {
+            if (ProfileManager.CurrentProfile?.LocalTranslationEnabled != true
+                || !ProfileManager.CurrentProfile.LocalTranslationBooks)
+                return;
+
+            QueueHeaderPartTranslation(_titleTextBox, title, LocalTranslationService.Instance.CacheGeneration);
+            QueueHeaderPartTranslation(_authorTextBox, author, LocalTranslationService.Instance.CacheGeneration);
+        }
+
+        private void QueueHeaderPartTranslation(StbTextBox textBox, string source, long cacheGeneration)
+        {
+            if (!LocalTranslationService.ShouldTranslate(source))
+                return;
+
+            if (LocalTranslationService.Instance.TryGetCached(source, TranslationScenario.Book, out string cached))
+            {
+                if (string.Equals(textBox.Text, source, StringComparison.Ordinal))
+                {
+                    textBox.SetText(cached);
+                    RememberTranslatedHeader(textBox, source, cached);
+                }
+                return;
+            }
+
+            _ = TranslateHeaderPartAsync(textBox, source, cacheGeneration);
+        }
+
+        private async Task TranslateHeaderPartAsync(StbTextBox textBox, string source, long cacheGeneration)
+        {
+            string translated = await LocalTranslationService.Instance.TranslateAsync(source, TranslationScenario.Book).ConfigureAwait(false);
+            if (string.Equals(source, translated, StringComparison.Ordinal))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                if (!IsDisposed && cacheGeneration == LocalTranslationService.Instance.CacheGeneration
+                    && ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+                    && ProfileManager.CurrentProfile.LocalTranslationBooks
+                    && string.Equals(textBox.Text, source, StringComparison.Ordinal))
+                {
+                    textBox.SetText(translated);
+                    RememberTranslatedHeader(textBox, source, translated);
+                }
+            });
+        }
+
+        private void RememberTranslatedHeader(StbTextBox textBox, string source, string translated)
+        {
+            if (ReferenceEquals(textBox, _titleTextBox))
+            {
+                _originalTranslatedTitle = source;
+                _translatedTitle = translated;
+            }
+            else if (ReferenceEquals(textBox, _authorTextBox))
+            {
+                _originalTranslatedAuthor = source;
+                _translatedAuthor = translated;
+            }
+        }
+
+        private void RestoreBookTranslations(IReadOnlyCollection<TranslationScenario> scenarios)
+        {
+            if (scenarios.Count != 0 && !scenarios.Contains(TranslationScenario.Book))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                if (IsDisposed)
+                    return;
+
+                foreach (KeyValuePair<int, TranslatedBookLine> entry in _translatedBookLines)
+                    if (entry.Key >= 0 && entry.Key < BookLines.Length
+                        && string.Equals(BookLines[entry.Key]?.TrimEnd('\n'), entry.Value.Translation, StringComparison.Ordinal))
+                        BookLines[entry.Key] = entry.Value.Original;
+
+                _translatedBookLines.Clear();
+                if (string.Equals(_titleTextBox?.Text, _translatedTitle, StringComparison.Ordinal))
+                    _titleTextBox.SetText(_originalTranslatedTitle);
+                if (string.Equals(_authorTextBox?.Text, _translatedAuthor, StringComparison.Ordinal))
+                    _authorTextBox.SetText(_originalTranslatedAuthor);
+
+                ServerSetBookText();
+            });
         }
 
 
@@ -263,12 +404,16 @@ namespace ClassicUO.Game.UI.Gumps
         {
             _titleTextBox.SetText(title);
             _titleTextBox.IsEditable = editable;
+            if (!editable)
+                QueueHeaderPartTranslation(_titleTextBox, title, LocalTranslationService.Instance.CacheGeneration);
         }
 
         public void SetAuthor(string author, bool editable)
         {
             _authorTextBox.SetText(author);
             _authorTextBox.IsEditable = editable;
+            if (!editable)
+                QueueHeaderPartTranslation(_authorTextBox, author, LocalTranslationService.Instance.CacheGeneration);
         }
 
         private void SetActivePage(int page)
@@ -309,11 +454,11 @@ namespace ClassicUO.Game.UI.Gumps
                         {
                             if (UseNewHeader)
                             {
-                                AsyncNetClient.Socket.Send_BookHeaderChanged(LocalSerial, _titleTextBox.Text, _authorTextBox.Text);
+                                AsyncNetClient.Socket.Send_BookHeaderChanged(LocalSerial, GetOutboundHeader(_titleTextBox.Text, _originalTranslatedTitle, _translatedTitle), GetOutboundHeader(_authorTextBox.Text, _originalTranslatedAuthor, _translatedAuthor));
                             }
                             else
                             {
-                                AsyncNetClient.Socket.Send_BookHeaderChanged_Old(LocalSerial, _titleTextBox.Text, _authorTextBox.Text);
+                                AsyncNetClient.Socket.Send_BookHeaderChanged_Old(LocalSerial, GetOutboundHeader(_titleTextBox.Text, _originalTranslatedTitle, _translatedTitle), GetOutboundHeader(_authorTextBox.Text, _originalTranslatedAuthor, _translatedAuthor));
                             }
                         }
                         else
@@ -322,7 +467,7 @@ namespace ClassicUO.Game.UI.Gumps
 
                             for (int x = (i - 1) * MAX_BOOK_LINES, l = 0; x < (i - 1) * MAX_BOOK_LINES + 8; x++, l++)
                             {
-                                text[l] = BookLines[x];
+                                text[l] = GetOutboundBookLine(x);
                             }
 
                             AsyncNetClient.Socket.Send_BookPageData(LocalSerial, text, i);
@@ -342,6 +487,30 @@ namespace ClassicUO.Game.UI.Gumps
 
         public override void OnButtonClick(int buttonID)
         {
+        }
+
+        private string GetOutboundBookLine(int index)
+        {
+            if (_translatedBookLines.TryGetValue(index, out TranslatedBookLine translated)
+                && string.Equals(BookLines[index]?.TrimEnd('\n'), translated.Translation, StringComparison.Ordinal))
+                return translated.Original;
+
+            return BookLines[index];
+        }
+
+        private static string GetOutboundHeader(string current, string original, string translation) =>
+            string.Equals(current, translation, StringComparison.Ordinal) ? original : current;
+
+        private sealed class TranslatedBookLine
+        {
+            public TranslatedBookLine(string original, string translation)
+            {
+                Original = original;
+                Translation = translation;
+            }
+
+            public string Original { get; }
+            public string Translation { get; }
         }
 
         public override void CloseWithRightClick()
@@ -490,6 +659,8 @@ namespace ClassicUO.Game.UI.Gumps
 
         public override void Dispose()
         {
+            LocalTranslationService.Instance.CacheInvalidated -= RestoreBookTranslations;
+            LocalTranslationService.Instance.TranslationDisplayDisabled -= RestoreBookTranslations;
             base.Dispose();
             _bookPage?.Dispose();
         }

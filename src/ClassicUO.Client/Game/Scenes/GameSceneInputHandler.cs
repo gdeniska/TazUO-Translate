@@ -2,6 +2,7 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using ClassicUO.Configuration;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
@@ -849,22 +850,7 @@ namespace ClassicUO.Game.Scenes
                             );
                         }
 
-                        _world.MessageManager.HandleMessage(
-                            null,
-                            name,
-                            string.Empty,
-                            0x03b2,
-                            MessageType.Label,
-                            3,
-                            TextType.CLIENT
-                        );
-
-                        obj.AddMessage(MessageType.Label, name, 3, 0x03b2, false, TextType.CLIENT);
-
-                        if (obj.TextContainer != null && obj.TextContainer.MaxSize != 1)
-                        {
-                            obj.TextContainer.MaxSize = 1;
-                        }
+                        ShowLocalWorldObjectLabel(obj, name);
 
                         break;
 
@@ -879,22 +865,7 @@ namespace ClassicUO.Game.Scenes
                             );
                         }
 
-                        _world.MessageManager.HandleMessage(
-                            null,
-                            name,
-                            string.Empty,
-                            0x03b2,
-                            MessageType.Label,
-                            3,
-                            TextType.CLIENT
-                        );
-
-                        obj.AddMessage(MessageType.Label, name, 3, 0x03b2, false, TextType.CLIENT);
-
-                        if (obj.TextContainer != null && obj.TextContainer.MaxSize == 5)
-                        {
-                            obj.TextContainer.MaxSize = 1;
-                        }
+                        ShowLocalWorldObjectLabel(obj, name);
 
                         break;
 
@@ -930,6 +901,66 @@ namespace ClassicUO.Game.Scenes
             }
 
             return true;
+        }
+
+        private void ShowLocalWorldObjectLabel(GameObject obj, string text)
+        {
+            if (obj == null || string.IsNullOrEmpty(text))
+                return;
+
+            Profile profile = ProfileManager.CurrentProfile;
+            bool translate = profile?.LocalTranslationEnabled == true
+                             && profile.LocalTranslationStaticWorldObjects
+                             && LocalTranslationService.ShouldTranslate(text);
+
+            if (translate && LocalTranslationService.Instance.TryGetCached(text, TranslationScenario.StaticWorldObject, out string cached))
+            {
+                ShowLocalWorldObjectLabelNow(obj, cached);
+                return;
+            }
+
+            ShowLocalWorldObjectLabelNow(obj, text);
+
+            if (translate)
+                _ = TranslateLocalWorldObjectLabelAsync(obj, text, LocalTranslationService.Instance.CacheGeneration);
+        }
+
+        private void ShowLocalWorldObjectLabelNow(GameObject obj, string text)
+        {
+            _world.MessageManager.HandleMessage(
+                null,
+                text,
+                string.Empty,
+                0x03b2,
+                MessageType.Label,
+                3,
+                TextType.CLIENT
+            );
+
+            obj.AddMessage(MessageType.Label, text, 3, 0x03b2, false, TextType.CLIENT);
+
+            if (obj.TextContainer != null)
+                obj.TextContainer.MaxSize = 1;
+        }
+
+        private async Task TranslateLocalWorldObjectLabelAsync(GameObject obj, string source, long cacheGeneration)
+        {
+            string translated = await LocalTranslationService.Instance
+                .TranslateAsync(source, TranslationScenario.StaticWorldObject)
+                .ConfigureAwait(false);
+
+            if (string.Equals(source, translated, StringComparison.Ordinal))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                Profile profile = ProfileManager.CurrentProfile;
+                if (obj.IsDestroyed || cacheGeneration != LocalTranslationService.Instance.CacheGeneration
+                    || profile?.LocalTranslationEnabled != true || !profile.LocalTranslationStaticWorldObjects)
+                    return;
+
+                ShowLocalWorldObjectLabelNow(obj, translated);
+            });
         }
 
         private bool OnLeftMouseDoubleClick()

@@ -13,6 +13,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ClassicUO.Game.Scenes;
 using System.Collections.Generic;
+using System.Linq;
 using ClassicUO.Utility.Logging;
 
 namespace ClassicUO.Game.UI.Gumps
@@ -26,6 +27,7 @@ namespace ClassicUO.Game.UI.Gumps
             _leftMouseIsDown,
             _isLastTarget,
             _needsNameUpdate;
+        private string _originalLocalItemName;
         private TextBox _text;
         private Texture2D _borderColor = SolidColorTextureCache.GetTexture(Color.Black);
                 private Vector2 _textDrawOffset = Vector2.Zero;
@@ -65,6 +67,8 @@ namespace ClassicUO.Game.UI.Gumps
             CanMove = false;
             AcceptMouseInput = true;
             CanCloseWithRightClick = true;
+            LocalTranslationService.Instance.CacheInvalidated += RestoreLocalItemName;
+            LocalTranslationService.Instance.TranslationDisplayDisabled += RestoreLocalItemName;
 
             Entity entity = World.Get(serial);
 
@@ -139,13 +143,9 @@ namespace ClassicUO.Game.UI.Gumps
                     return false;
                 }
 
-                _text.Text = t;
-
-                Width = _background.Width = Math.Max(60, _text.Width) + 4;
-                Height = _background.Height = CurrentHeight = Math.Max(Constants.OBJECT_HANDLES_GUMP_HEIGHT, _text.Height) + 4;
-                _textDrawOffset.X = (Width - _text.Width - 4) >> 1;
-                _textDrawOffset.Y = (Height - _text.Height) >> 1;
-                WantUpdateSize = false;
+                _originalLocalItemName = t;
+                SetItemNameText(t);
+                QueueLocalItemNameTranslation(t);
 
                 return true;
             }
@@ -167,6 +167,67 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             return false;
+        }
+
+        private void SetItemNameText(string text)
+        {
+            _text.Text = text;
+            Width = _background.Width = Math.Max(60, _text.Width) + 4;
+            Height = _background.Height = CurrentHeight = Math.Max(Constants.OBJECT_HANDLES_GUMP_HEIGHT, _text.Height) + 4;
+            _textDrawOffset.X = (Width - _text.Width - 4) >> 1;
+            _textDrawOffset.Y = (Height - _text.Height) >> 1;
+            WantUpdateSize = false;
+        }
+
+        private void QueueLocalItemNameTranslation(string source)
+        {
+            Profile profile = ProfileManager.CurrentProfile;
+            if (profile?.LocalTranslationEnabled != true || !profile.LocalTranslationItemNames
+                || !LocalTranslationService.ShouldTranslate(source))
+                return;
+
+            if (LocalTranslationService.Instance.TryGetCached(source, TranslationScenario.ItemName, out string cached))
+            {
+                _needsNameUpdate = false;
+                SetItemNameText(cached);
+                return;
+            }
+
+            _ = TranslateLocalItemNameAsync(source, LocalTranslationService.Instance.CacheGeneration);
+        }
+
+        private async System.Threading.Tasks.Task TranslateLocalItemNameAsync(string source, long cacheGeneration)
+        {
+            string translated = await LocalTranslationService.Instance.TranslateAsync(source, TranslationScenario.ItemName).ConfigureAwait(false);
+            if (string.Equals(source, translated, StringComparison.Ordinal))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                if (!IsDisposed && cacheGeneration == LocalTranslationService.Instance.CacheGeneration
+                    && ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+                    && ProfileManager.CurrentProfile.LocalTranslationItemNames
+                    && string.Equals(_originalLocalItemName, source, StringComparison.Ordinal))
+                {
+                    // Do not let Update() overwrite this result every frame while waiting
+                    // for an optional OPL packet from the server.
+                    _needsNameUpdate = false;
+                    SetItemNameText(translated);
+                }
+            });
+        }
+
+        private void RestoreLocalItemName(IReadOnlyCollection<TranslationScenario> scenarios)
+        {
+            if ((scenarios.Count != 0 && !scenarios.Contains(TranslationScenario.ItemName))
+                || string.IsNullOrEmpty(_originalLocalItemName))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                if (!IsDisposed)
+                    SetItemNameText(_originalLocalItemName);
+            });
         }
 
         private void BuildGump()
@@ -916,6 +977,8 @@ namespace ClassicUO.Game.UI.Gumps
 
         public override void Dispose()
         {
+            LocalTranslationService.Instance.CacheInvalidated -= RestoreLocalItemName;
+            LocalTranslationService.Instance.TranslationDisplayDisabled -= RestoreLocalItemName;
             _text?.Dispose();
             base.Dispose();
         }

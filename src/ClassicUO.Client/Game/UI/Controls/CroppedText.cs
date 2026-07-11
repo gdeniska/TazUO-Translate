@@ -35,6 +35,12 @@ namespace ClassicUO.Game.UI.Controls
             IsFromServer = true;
         }
 
+        public string Text
+        {
+            get => _gameText.Text;
+            set => _gameText.Text = value;
+        }
+
         public override bool Draw(UltimaBatcher2D batcher, int x, int y)
         {
             _gameText.Draw(batcher, x, y);

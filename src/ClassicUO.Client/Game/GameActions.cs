@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 using System;
+using System.Threading.Tasks;
 using ClassicUO.Configuration;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
@@ -18,11 +19,13 @@ using ClassicUO.Utility;
 using ClassicUO.Utility.Logging;
 using Microsoft.Xna.Framework;
 using static ClassicUO.Network.AsyncNetClient;
+using SemaphoreSlim = System.Threading.SemaphoreSlim;
 
 namespace ClassicUO.Game;
 
 internal static class GameActions
 {
+    private static readonly SemaphoreSlim _outgoingSpeechTranslationQueue = new(1, 1);
     public static int LastSpellIndex { get; set; } = 1;
     public static int LastSkillIndex { get; set; } = 1;
 
@@ -716,6 +719,40 @@ internal static class GameActions
             hue = ProfileManager.CurrentProfile.SpeechHue;
         }
 
+        if (ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+            && ProfileManager.CurrentProfile.LocalTranslationOutgoingSpeech
+            && LocalTranslationService.ShouldTranslateOutgoingSpeech(message))
+        {
+            _ = TranslateAndSendSpeechAsync(message, hue, type, font);
+            return;
+        }
+
+        SendSpeechRequest(message, hue, type, font);
+    }
+
+    private static async Task TranslateAndSendSpeechAsync(string original, ushort hue, MessageType type, byte font)
+    {
+        await _outgoingSpeechTranslationQueue.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            string translated = await LocalTranslationService.Instance.TranslateOutgoingSpeechAsync(original).ConfigureAwait(false);
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                string message = ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+                                 && ProfileManager.CurrentProfile.LocalTranslationOutgoingSpeech
+                    ? translated
+                    : original;
+                SendSpeechRequest(message, hue, type, font);
+            });
+        }
+        finally
+        {
+            _outgoingSpeechTranslationQueue.Release();
+        }
+    }
+
+    private static void SendSpeechRequest(string message, ushort hue, MessageType type, byte font)
+    {
         // TODO: identify what means 'older client' that uses ASCIISpeechRquest [0x03]
         //
         // Fix -> #1267
@@ -799,7 +836,37 @@ internal static class GameActions
     {
             // Record action for script recording
             ScriptRecorder.Instance.RecordPartyMsg(message);
+
+        if (ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+            && ProfileManager.CurrentProfile.LocalTranslationOutgoingSpeech
+            && LocalTranslationService.ShouldTranslateOutgoingSpeech(message))
+        {
+            _ = TranslateAndSendPartySpeechAsync(message, serial);
+            return;
+        }
+
         Socket.Send_PartyMessage(message, serial);
+    }
+
+    private static async Task TranslateAndSendPartySpeechAsync(string original, uint serial)
+    {
+        await _outgoingSpeechTranslationQueue.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            string translated = await LocalTranslationService.Instance.TranslateOutgoingSpeechAsync(original).ConfigureAwait(false);
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                string message = ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+                                 && ProfileManager.CurrentProfile.LocalTranslationOutgoingSpeech
+                    ? translated
+                    : original;
+                Socket.Send_PartyMessage(message, serial);
+            });
+        }
+        finally
+        {
+            _outgoingSpeechTranslationQueue.Release();
+        }
     }
 
     internal static void RequestPartyAccept(uint serial)

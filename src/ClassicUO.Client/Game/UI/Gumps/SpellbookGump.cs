@@ -14,6 +14,7 @@ using ClassicUO.Resources;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml;
 using ClassicUO.Common.Enums;
 
@@ -30,6 +31,7 @@ namespace ClassicUO.Game.UI.Gumps
             _picBase;
         private SpellBookType _spellBookType;
         private readonly bool[] _spells = new bool[64];
+        private readonly Dictionary<Control, string> _originalSpellTooltips = new();
         private int _enqueuePage = -1;
 
         public SpellBookType SpellBookType => _spellBookType;
@@ -46,6 +48,8 @@ namespace ClassicUO.Game.UI.Gumps
             CanMove = true;
             AcceptMouseInput = false;
             CanCloseWithRightClick = true;
+            LocalTranslationService.Instance.CacheInvalidated += RestoreSpellTooltips;
+            LocalTranslationService.Instance.TranslationDisplayDisabled += RestoreSpellTooltips;
         }
 
         public bool IsMinimized
@@ -169,6 +173,8 @@ namespace ClassicUO.Game.UI.Gumps
 
         public override void Dispose()
         {
+            LocalTranslationService.Instance.CacheInvalidated -= RestoreSpellTooltips;
+            LocalTranslationService.Instance.TranslationDisplayDisabled -= RestoreSpellTooltips;
             Client.Game.Audio.PlaySound(0x0055);
             UIManager.SavePosition(LocalSerial, Location);
             base.Dispose();
@@ -435,7 +441,7 @@ namespace ClassicUO.Game.UI.Gumps
                                                             toolTipCliloc + id
                                                         );
 
-                                                    icon.SetTooltip(tooltip, 250);
+                                                    SetSpellTooltip(icon, tooltip);
                                                 }
                                             }
                                         }
@@ -758,7 +764,7 @@ namespace ClassicUO.Game.UI.Gumps
                 if (toolTipCliloc > 0)
                 {
                     string tooltip = Client.Game.UO.FileManager.Clilocs.GetString(toolTipCliloc + i);
-                    icon.SetTooltip(tooltip, 250);
+                    SetSpellTooltip(icon, tooltip);
                 }
 
                 icon.MouseDoubleClick += OnIconDoubleClick;
@@ -869,6 +875,53 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             return null;
+        }
+
+        private void SetSpellTooltip(Control control, string tooltip)
+        {
+            control.SetTooltip(tooltip, 250);
+
+            Profile profile = ProfileManager.CurrentProfile;
+            if (profile?.LocalTranslationEnabled != true || !profile.LocalTranslationGumps
+                || !LocalTranslationService.ShouldTranslate(tooltip))
+                return;
+
+            _originalSpellTooltips[control] = tooltip;
+            if (LocalTranslationService.Instance.TryGetCached(tooltip, TranslationScenario.Gump, out string cached))
+            {
+                control.SetTooltip(cached, 250);
+                return;
+            }
+
+            _ = TranslateSpellTooltipAsync(control, tooltip);
+        }
+
+        private async System.Threading.Tasks.Task TranslateSpellTooltipAsync(Control control, string original)
+        {
+            string translated = await LocalTranslationService.Instance.TranslateAsync(original, TranslationScenario.Gump).ConfigureAwait(false);
+            if (string.Equals(original, translated, StringComparison.Ordinal))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                if (!IsDisposed && !control.IsDisposed
+                    && ProfileManager.CurrentProfile?.LocalTranslationEnabled == true
+                    && ProfileManager.CurrentProfile.LocalTranslationGumps)
+                    control.SetTooltip(translated, 250);
+            });
+        }
+
+        private void RestoreSpellTooltips(IReadOnlyCollection<TranslationScenario> scenarios)
+        {
+            if (scenarios.Count != 0 && !scenarios.Contains(TranslationScenario.Gump))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                foreach (KeyValuePair<Control, string> tooltip in _originalSpellTooltips)
+                    if (!tooltip.Key.IsDisposed)
+                        tooltip.Key.SetTooltip(tooltip.Value, 250);
+            });
         }
 
         private SpellDefinition GetSpellDefinition(uint serial)

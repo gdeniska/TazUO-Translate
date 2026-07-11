@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using ClassicUO.Configuration;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
@@ -62,7 +63,8 @@ namespace ClassicUO.Game.Managers
             byte font,
             TextType textType,
             bool unicode = false,
-            string lang = null
+            string lang = null,
+            bool allowTranslation = true
         )
         {
             if (string.IsNullOrEmpty(text))
@@ -71,6 +73,19 @@ namespace ClassicUO.Game.Managers
             }
 
             Profile currentProfile = ProfileManager.CurrentProfile;
+
+            if (allowTranslation && currentProfile?.LocalTranslationEnabled == true && currentProfile.LocalTranslationChat
+                && textType != TextType.CLIENT && type != MessageType.Command && type != MessageType.Encoded)
+            {
+                TranslationScenario scenario = type == MessageType.System || type == MessageType.ChatSystem
+                    ? TranslationScenario.SystemMessage
+                    : TranslationScenario.Chat;
+
+                if (LocalTranslationService.Instance.TryGetCached(text, scenario, out string cachedTranslation))
+                    text = cachedTranslation;
+                else if (LocalTranslationService.ShouldTranslate(text))
+                    _ = TranslateMessageAsync(parent, text, name, hue, type, font, textType, unicode, lang, scenario);
+            }
 
             if (textType == TextType.OBJECT)
             {
@@ -290,6 +305,34 @@ namespace ClassicUO.Game.Managers
                     lang
                 )
             );
+        }
+
+        private async Task TranslateMessageAsync(
+            Entity parent,
+            string original,
+            string name,
+            ushort hue,
+            MessageType type,
+            byte font,
+            TextType textType,
+            bool unicode,
+            string lang,
+            TranslationScenario scenario
+        )
+        {
+            string translated = await LocalTranslationService.Instance.TranslateAsync(original, scenario).ConfigureAwait(false);
+            if (string.Equals(original, translated, StringComparison.Ordinal))
+                return;
+
+            MainThreadQueue.EnqueueAction(() =>
+            {
+                Profile profile = ProfileManager.CurrentProfile;
+                if (!ReferenceEquals(World.Instance, _world) || parent?.IsDestroyed == true
+                    || profile?.LocalTranslationEnabled != true || !profile.LocalTranslationChat)
+                    return;
+
+                HandleMessage(parent, translated, name, hue, type, font, textType, true, lang, false);
+            });
         }
 
         public void OnLocalizedMessage(Entity entity, MessageEventArgs args) => LocalizedMessageReceived.Raise(args, entity);

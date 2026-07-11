@@ -108,6 +108,24 @@ namespace ClassicUO.Configuration
         public bool IgnoreAllianceMessages { get; set => SetProperty(ref field, value); }
         public bool IgnoreGuildMessages { get; set => SetProperty(ref field, value); }
 
+        // local LLM translation
+        public bool LocalTranslationEnabled { get; set => SetProperty(ref field, value); }
+        public bool LocalTranslationChat { get; set => SetProperty(ref field, value); } = true;
+        public bool LocalTranslationGumps { get; set => SetProperty(ref field, value); } = true;
+        public bool LocalTranslationItemNames { get; set => SetProperty(ref field, value); } = true;
+        public bool LocalTranslationStaticWorldObjects { get; set => SetProperty(ref field, value); } = true;
+        public bool LocalTranslationItemProperties { get; set => SetProperty(ref field, value); } = true;
+        public bool LocalTranslationBooks { get; set => SetProperty(ref field, value); } = true;
+        public bool LocalTranslationOutgoingSpeech { get; set => SetProperty(ref field, value); }
+        public string LocalTranslationEndpoint { get; set => SetProperty(ref field, value); } = "http://127.0.0.1:1234/v1/chat/completions";
+        public string LocalTranslationModel { get; set => SetProperty(ref field, value); } = string.Empty;
+        public string LocalTranslationApiKey { get; set => SetProperty(ref field, value); } = string.Empty;
+        public string LocalTranslationSourceLanguage { get; set => SetProperty(ref field, value); } = "English";
+        public string LocalTranslationTargetLanguage { get; set => SetProperty(ref field, value); } = "Russian";
+        public int LocalTranslationTimeoutSeconds { get; set => SetProperty(ref field, value); } = 30;
+        public int LocalTranslationMaxParallelRequests { get; set => SetProperty(ref field, value); } = 2;
+        public bool LocalTranslationDiagnosticLogging { get; set => SetProperty(ref field, value); }
+
         // hues
         public ushort SpeechHue { get; set => SetProperty(ref field, value); } = 0x02B2;
         public ushort WhisperHue { get; set => SetProperty(ref field, value); } = 0x0033;

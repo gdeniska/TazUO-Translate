@@ -27,6 +27,7 @@ namespace ClassicUO.Game.UI.Gumps
         private List<SettingsOption> _options = new List<SettingsOption>();
         private Profile profile;
         private ModernOptionsGumpLanguage lang = Language.Instance.GetModernOptionsGumpLanguage;
+        private TextBox _translationStatistics;
 
         public ModernOptionsGump(World world) : base(world, 900, 700,
             Language.Instance.GetModernOptionsGumpLanguage.OptionsTitle)
@@ -4732,8 +4733,116 @@ namespace ClassicUO.Game.UI.Gumps
 
             #endregion
 
+            #region Local LLM translation
+
+            page = ((int)PAGE.TUOOptions + 1017);
+            content.AddToLeft(SubCategoryButton("Local LLM translation", page, content.LeftWidth));
+            content.ResetRightSide();
+
+            content.AddToRight(
+                TextBox.GetOne(
+                    "Translates server text through an OpenAI-compatible local endpoint. Original text is shown immediately; translations arrive asynchronously and are cached on disk.",
+                    ThemeSettings.FONT, ThemeSettings.STANDARD_TEXT_SIZE, ThemeSettings.TEXT_FONT_COLOR,
+                    TextBox.RTLOptions.Default(content.RightWidth - 15)
+                ), true, page
+            );
+            content.BlankLine();
+
+            void AddTranslationToggle(string label, bool isChecked, Action<bool> onChanged, params TranslationScenario[] scenarios)
+            {
+                const int clearButtonWidth = 76;
+                var row = new DataBox(0, 0, content.RightWidth - 15, 35) { CanMove = true };
+                row.Add(new CheckboxWithLabel(label, 0, isChecked, enabled =>
+                {
+                    onChanged(enabled);
+                    if (!enabled)
+                        LocalTranslationService.Instance.DisableTranslationDisplay(scenarios);
+                }));
+
+                var clearButton = new ModernButton(0, 0, clearButtonWidth, 30, ButtonAction.Activate, "Clear",
+                    ThemeSettings.BUTTON_FONT_COLOR)
+                {
+                    X = row.Width - clearButtonWidth - 8,
+                    Y = 2
+                };
+                clearButton.MouseUp += (sender, e) => LocalTranslationService.Instance.ClearScenarios(scenarios);
+                clearButton.SetTooltip("Clear cached translations for this category");
+                row.Add(clearButton);
+                content.AddToRight(row, true, page);
+            }
+
+            content.AddToRight(new CheckboxWithLabel("Enable local translation", 0, profile.LocalTranslationEnabled,
+                valueChanged: enabled =>
+                {
+                    profile.LocalTranslationEnabled = enabled;
+                    if (!enabled)
+                        LocalTranslationService.Instance.DisableTranslationDisplay();
+                }), true, page);
+            AddTranslationToggle("Translate chat and server messages", profile.LocalTranslationChat,
+                enabled => profile.LocalTranslationChat = enabled, TranslationScenario.Chat, TranslationScenario.SystemMessage);
+            AddTranslationToggle("Translate server gumps", profile.LocalTranslationGumps,
+                enabled => profile.LocalTranslationGumps = enabled, TranslationScenario.Gump);
+            AddTranslationToggle("Translate item names", profile.LocalTranslationItemNames,
+                enabled => profile.LocalTranslationItemNames = enabled, TranslationScenario.ItemName);
+            AddTranslationToggle("Translate static world objects", profile.LocalTranslationStaticWorldObjects,
+                enabled => profile.LocalTranslationStaticWorldObjects = enabled, TranslationScenario.StaticWorldObject);
+            AddTranslationToggle("Translate item properties", profile.LocalTranslationItemProperties,
+                enabled => profile.LocalTranslationItemProperties = enabled, TranslationScenario.ItemProperty);
+            AddTranslationToggle("Translate books", profile.LocalTranslationBooks,
+                enabled => profile.LocalTranslationBooks = enabled, TranslationScenario.Book);
+            AddTranslationToggle("Translate outgoing Russian speech to English", profile.LocalTranslationOutgoingSpeech,
+                enabled => profile.LocalTranslationOutgoingSpeech = enabled, TranslationScenario.OutgoingSpeech);
+            content.AddToRight(new CheckboxWithLabel("Diagnostic translation logging", 0, profile.LocalTranslationDiagnosticLogging,
+                valueChanged: enabled => profile.LocalTranslationDiagnosticLogging = enabled), true, page);
+            content.BlankLine();
+
+            content.AddToRight(new InputFieldWithLabel("Endpoint", 300, profile.LocalTranslationEndpoint,
+                onTextChange: (sender, e) => profile.LocalTranslationEndpoint = ((InputField.StbTextBox)sender).Text), true, page);
+            content.AddToRight(new InputFieldWithLabel("Model (blank = LM Studio default)", 300, profile.LocalTranslationModel,
+                onTextChange: (sender, e) => profile.LocalTranslationModel = ((InputField.StbTextBox)sender).Text), true, page);
+            content.AddToRight(new InputFieldWithLabel("Source language", 150, profile.LocalTranslationSourceLanguage,
+                onTextChange: (sender, e) => profile.LocalTranslationSourceLanguage = ((InputField.StbTextBox)sender).Text), true, page);
+            content.AddToRight(new InputFieldWithLabel("Target language", 150, profile.LocalTranslationTargetLanguage,
+                onTextChange: (sender, e) => profile.LocalTranslationTargetLanguage = ((InputField.StbTextBox)sender).Text), true, page);
+            content.AddToRight(new InputFieldWithLabel("Timeout (seconds)", 80, profile.LocalTranslationTimeoutSeconds.ToString(), true,
+                (sender, e) =>
+                {
+                    if (int.TryParse(((InputField.StbTextBox)sender).Text, out int timeout))
+                        profile.LocalTranslationTimeoutSeconds = Math.Clamp(timeout, 3, 180);
+                }), true, page);
+            content.AddToRight(new InputFieldWithLabel("Parallel requests", 80, profile.LocalTranslationMaxParallelRequests.ToString(), true,
+                (sender, e) =>
+                {
+                    if (int.TryParse(((InputField.StbTextBox)sender).Text, out int maxRequests))
+                        profile.LocalTranslationMaxParallelRequests = Math.Clamp(maxRequests, 1, 8);
+                }), true, page);
+            content.BlankLine();
+
+            _translationStatistics = TextBox.GetOne(
+                LocalTranslationService.Instance.GetStatistics().ToString(),
+                ThemeSettings.FONT, ThemeSettings.STANDARD_TEXT_SIZE, ThemeSettings.TEXT_FONT_COLOR,
+                TextBox.RTLOptions.Default(content.RightWidth - 15)
+            );
+            content.AddToRight(_translationStatistics, true, page);
+            content.BlankLine();
+
+            var clearTranslationCache = new ModernButton(0, 0, 220, 35, ButtonAction.Activate, "Clear translation cache",
+                ThemeSettings.BUTTON_FONT_COLOR);
+            clearTranslationCache.MouseUp += (sender, e) => LocalTranslationService.Instance.ClearAll();
+            content.AddToRight(clearTranslationCache, true, page);
+
+            #endregion
+
 
             _options.Add(new SettingsOption("", content, MainContent.RightWidth, (int)PAGE.TUOOptions));
+        }
+
+        public override void Update()
+        {
+            if (_translationStatistics != null && !_translationStatistics.IsDisposed)
+                _translationStatistics.Text = LocalTranslationService.Instance.GetStatistics().ToString();
+
+            base.Update();
         }
 
         /// <summary>
