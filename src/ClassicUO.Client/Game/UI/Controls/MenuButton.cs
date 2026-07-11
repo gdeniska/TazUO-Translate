@@ -4,7 +4,7 @@ namespace ClassicUO.Game.UI.Controls
 {
     public class MenuButton : Control
     {
-        public MenuButton(int width, uint hue, float alpha, string tooltip = "", uint linehue = UInt32.MaxValue)
+        public MenuButton(int width, uint hue, float alpha, string tooltip = "", uint linehue = UInt32.MaxValue, string label = null)
         {
             Width = width;
             Height = 16;
@@ -19,6 +19,17 @@ namespace ClassicUO.Game.UI.Controls
             Add(new Line(0, 2, Width, 2, hue) { Alpha = alpha, AcceptMouseInput = false });
             Add(new Line(0, 7, Width, 2, hue) { Alpha = alpha, AcceptMouseInput = false });
             Add(new Line(0, 12, Width, 2, hue) { Alpha = alpha, AcceptMouseInput = false });
+
+            if (!string.IsNullOrWhiteSpace(label))
+            {
+                Add(new Label(label, true, 0x0481)
+                {
+                    X = 4,
+                    Y = 0,
+                    AcceptMouseInput = false
+                });
+            }
+
             SetTooltip(tooltip);
             //_.SetTooltip(tooltip);
         }

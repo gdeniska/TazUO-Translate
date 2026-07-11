@@ -26,6 +26,7 @@ internal static class GumpHelpers
     [ThreadStatic] private static TextFileParser _cmdParser;
     private static readonly ConcurrentDictionary<(uint Sender, uint GumpID), int> _translationGenerations = new();
     private static readonly ConditionalWeakTable<IGui, OriginalTranslationText> _originalTranslationTexts = new();
+    private static readonly ConditionalWeakTable<Gump, object> _originalTextDisplayGumps = new();
     private static readonly List<WeakReference<Gump>> _translatedGumps = new();
 
     static GumpHelpers()
@@ -695,6 +696,7 @@ internal static class GumpHelpers
 
     private static void ScheduleServerTextTranslation(Gump gump, uint sender, uint gumpID, int generation)
     {
+        _originalTextDisplayGumps.Remove(gump);
         TranslationScenario scenario = IsDynamicBookGump(gump) ? TranslationScenario.Book : TranslationScenario.Gump;
         if (!IsScenarioEnabled(ProfileManager.CurrentProfile, scenario))
             return;
@@ -814,6 +816,9 @@ internal static class GumpHelpers
             || currentGeneration != generation)
             return;
 
+        if (_originalTextDisplayGumps.TryGetValue(gump, out _))
+            return;
+
         SetTranslatedText(control, null, translated);
     }
 
@@ -851,14 +856,18 @@ internal static class GumpHelpers
 
     private static void AddTranslationMenu(Gump gump, uint sender, uint gumpID, int generation, TranslationScenario scenario)
     {
-        var menu = new MenuButton(25, Color.Black.PackedValue, 0.75f, "LLM")
+        var menu = new MenuButton(92, Color.Red.PackedValue, 0.75f, "LLM Settings", label: "LLM Settings")
         {
-            X = Math.Max(0, gump.Width - 46),
+            X = Math.Max(0, gump.Width - 100),
             Y = 6
         };
 
         menu.MouseUp += (s, e) => menu.ContextMenu?.Show();
         menu.ContextMenu = new ContextMenuControl(gump);
+        menu.ContextMenu.Add(new ContextMenuItemEntry("Show original text", () =>
+            ShowOriginalGumpText(gump, sender, gumpID, generation)));
+        menu.ContextMenu.Add(new ContextMenuItemEntry("Show translated text", () =>
+            ShowTranslatedGumpText(gump, sender, gumpID, generation, scenario)));
         menu.ContextMenu.Add(new ContextMenuItemEntry("Regenerate translations", () =>
             RegenerateGumpTranslations(gump, sender, gumpID, generation, scenario, true)));
         menu.ContextMenu.Add(new ContextMenuItemEntry("Forget translations for this gump", () =>
@@ -872,6 +881,8 @@ internal static class GumpHelpers
             || !_translationGenerations.TryGetValue((sender, gumpID), out int currentGeneration)
             || currentGeneration != generation)
             return;
+
+        _originalTextDisplayGumps.Remove(gump);
 
         var controls = new List<(IGui Control, string Original)>();
         foreach (IGui child in EnumerateChildren(gump))
@@ -893,6 +904,50 @@ internal static class GumpHelpers
         long cacheGeneration = LocalTranslationService.Instance.CacheGeneration;
         foreach ((IGui control, string original) in controls)
             _ = TranslateControlAsync(gump, control, original, sender, gumpID, generation, scenario, cacheGeneration, true);
+    }
+
+    private static void ShowOriginalGumpText(Gump gump, uint sender, uint gumpID, int generation)
+    {
+        if (gump.IsDisposed || gump.LocalSerial != sender || gump.ServerSerial != gumpID
+            || !_translationGenerations.TryGetValue((sender, gumpID), out int currentGeneration)
+            || currentGeneration != generation)
+            return;
+
+        _originalTextDisplayGumps.Remove(gump);
+        _originalTextDisplayGumps.Add(gump, new object());
+
+        foreach (IGui child in EnumerateChildren(gump))
+        {
+            if (_originalTranslationTexts.TryGetValue(child, out OriginalTranslationText original)
+                && GetControlText(child) != null)
+                SetTranslatedText(child, null, original.Value);
+        }
+    }
+
+    private static void ShowTranslatedGumpText(Gump gump, uint sender, uint gumpID, int generation, TranslationScenario scenario)
+    {
+        if (gump.IsDisposed || gump.LocalSerial != sender || gump.ServerSerial != gumpID
+            || !_translationGenerations.TryGetValue((sender, gumpID), out int currentGeneration)
+            || currentGeneration != generation || !IsScenarioEnabled(ProfileManager.CurrentProfile, scenario))
+            return;
+
+        _originalTextDisplayGumps.Remove(gump);
+        long cacheGeneration = LocalTranslationService.Instance.CacheGeneration;
+
+        foreach (IGui child in EnumerateChildren(gump))
+        {
+            if (!_originalTranslationTexts.TryGetValue(child, out OriginalTranslationText original))
+                continue;
+
+            if (original.Value.Length <= 16_384
+                && LocalTranslationService.Instance.TryGetCached(original.Value, scenario, out string cached))
+            {
+                SetTranslatedText(child, null, cached);
+                continue;
+            }
+
+            _ = TranslateControlAsync(gump, child, original.Value, sender, gumpID, generation, scenario, cacheGeneration);
+        }
     }
 
     private static bool IsDynamicBookGump(Gump gump) =>
