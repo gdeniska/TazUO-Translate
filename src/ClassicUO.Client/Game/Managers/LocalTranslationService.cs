@@ -138,7 +138,9 @@ internal sealed class LocalTranslationService
             return Task.FromResult(source);
 
         const string sourceLanguage = "Russian";
-        const string targetLanguage = "English";
+        string targetLanguage = string.IsNullOrWhiteSpace(profile.LocalTranslationOutgoingTargetLanguage)
+            ? "English"
+            : profile.LocalTranslationOutgoingTargetLanguage.Trim();
         EnsureCacheLoaded();
         string key = CreateCacheKey(source, TranslationScenario.OutgoingSpeech, profile, sourceLanguage, targetLanguage);
 

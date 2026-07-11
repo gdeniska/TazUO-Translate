@@ -1,49 +1,122 @@
-<p align="center"><a href="https://discord.gg/QvqzkB95G4"><img src="https://discord.com/api/guilds/1344851225538986064/widget.png?style=banner3" alt="Discord Banner 3"/></a></p>
+# TazUO Translate
 
-***
+**TazUO Translate** is a custom Ultima Online client based on [TazUO](https://github.com/PlayTazUO/TazUO), with built-in local AI translation. It connects to an OpenAI-compatible local LLM endpoint such as [LM Studio](https://lmstudio.ai/) and translates supported game text while you play.
 
+The project is intended for players who want to play an English-language shard in another language without sending their game text to a third-party translation service.
 
-| Channel | Status                                                                                                                                                                     |
-| --- |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Release | [![Release](https://github.com/PlayTazUO/TazUO/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/PlayTazUO/TazUO/actions/workflows/build-test.yml) |
-| Dev | [![Dev](https://github.com/PlayTazUO/TazUO/actions/workflows/build-test.yml/badge.svg?branch=dev)](https://github.com/PlayTazUO/TazUO/actions/workflows/build-test.yml)        |
+> This is an independent fork. It is not affiliated with the upstream TazUO project or its servers. Always follow the rules of the shard you play on.
 
+## What is translated
 
-# What is TazUO?
-**TazUO** was originally a fork from ClassicUO with the mindset of adding features requested by users to improve QOL. **TazUO** has since moved away from ClassicUO, we will keep an eye on ClassicUO updates and incorporate changes or fixes as they have a wider user base that provides bug reports, but **TazUO** will no longer be merging all changes from ClassicUO.
+When local translation is enabled, TazUO Translate supports the following categories:
 
-# Play now
-The easiest way to play with TazUO is via our [launcher](https://github.com/PlayTazUO/TUO-Launcher/releases/latest)!
+- Incoming chat, NPC dialogue, and server messages.
+- Server gumps, including long text translated progressively.
+- Server books and their headers.
+- Item names and item properties received from the server.
+- Static world-object labels shown after clicking objects such as `bonfire` or `stone chair`.
+- Spellbook tooltip descriptions.
+- Outgoing Russian speech translated to a configurable target language before it is sent to the server, including regular speech, whisper, yell, emote, guild, alliance, and party messages.
 
-# TazUO features
-Check out our [website](https://tazuo.org) for details on all the changes TazUO has made for players!  
+Every category can be enabled or disabled separately in **Options → Local LLM translation**. The outgoing-speech option is disabled by default.
 
-***Most*** features can be disabled if you don't want to use said feature.  
+## Screenshots
 
-- [Launcher](https://tazuo.org/?q=launcher) - Managing profiles for multiple accounts/servers
-- [Grid containers](https://tazuo.org/?q=grid+containers) - Easily find and move items with our fully customizable grid containers
-- [Custom build-in scripting](https://tazuo.org/?q=legion+scripting) - Build in powerful scripting languages. **Python** and Legion Script.
-- **Assistant features built-in** - Like Auto buy, sell, auto loot and more.
-- [Journal](https://tazuo.org/?q=journal) - Vastly improved journal for readability and organization
-- [Alternative paperdoll](https://tazuo.org/?q=alternate+paperdoll) - A new flavor of your paperdoll
-- [Improved buff bar](https://tazuo.org/?q=buff+bars)
-- [Client commands](https://tazuo.org/?q=commands) - Several commands have been added for various features
-- [Controller support](https://tazuo.org/?q=controller+support) - That's right, play with your controller!
-- [Cooldown bars](https://tazuo.org/?q=cooldown+bars) - Customizable cooldown bars
-- [Grid Highlighting](https://tazuo.org/?q=grid+highlighting) - Grid highlighting of items that have specific properties, easier looting!
-- [Tooltip overrides](https://tazuo.org/?q=tooltip+override) - Customize and override any text in tooltips!
-- [Custom fonts](https://tazuo.org/?q=ttf+fonts) - BYOF, Bring your own fonts for better readability.
+<p align="center">
+  <img src="docs/images/translation-settings-and-gump.png" alt="Local LLM translation settings next to a translated server gump" width="49%" />
+  <img src="docs/images/translation-settings-and-spellbook.png" alt="Translation settings and a translated spellbook tooltip" width="49%" />
+</p>
 
-There are ***many*** more features to check out in our [website](https://tazuo.org) or in game, this list is just a sample!
+<p align="center">
+  <img src="docs/images/translated-npc-dialogue.png" alt="Original and translated NPC dialogue in the game world" width="49%" />
+  <img src="docs/images/translated-server-message.png" alt="Original and translated server message in the game world" width="49%" />
+</p>
 
+## Local LLM setup
 
-# Screenshots
-![Cooldown](https://user-images.githubusercontent.com/3859393/227056224-ef1c6958-fff5-4698-a21a-c63c5814877c.gif)  
-![SlottedInv](https://user-images.githubusercontent.com/3859393/226514464-32919a68-ebad-4ec0-8bcf-8614a5055f7d.gif)  
-![Grid Previe](https://user-images.githubusercontent.com/3859393/222873187-c88ad321-8b19-4cfd-9617-7e23b2443b6a.gif)  
-![image](https://user-images.githubusercontent.com/3859393/222975241-319e5fa6-2c1e-441d-97e6-b04a5e1f6f3b.png)  
-![Journal](https://user-images.githubusercontent.com/3859393/222942915-e31d26aa-e9a7-41df-9c99-570bcc00d1fb.gif)  
-![image](https://user-images.githubusercontent.com/3859393/225168130-5ce83950-853d-43ce-9583-65ec4b0ae9d6.png)  
-![image](https://user-images.githubusercontent.com/3859393/225307385-c8e8014f-9b84-4fe4-a2cd-f33fbeee9563.png)  
-![image](https://user-images.githubusercontent.com/3859393/226114408-28c6556d-6ba8-43c7-bf1a-079342aaeacd.png)  
-![image](https://user-images.githubusercontent.com/3859393/226114417-e68b1653-f719-49b3-b799-0beb07e0a211.png)  
+1. Start an OpenAI-compatible local server. LM Studio is the primary supported option.
+2. In LM Studio, start the local server. Its default endpoint is:
+
+   ```text
+   http://127.0.0.1:1234/v1/chat/completions
+   ```
+
+3. In the game, open **Options → Local LLM translation**.
+4. Enable **Enable local translation** and choose the categories you need.
+5. Set the endpoint, optional model name, source language, target language, timeout, and parallel-request limit.
+
+Incoming translation uses the configured source and target languages. Outgoing speech uses Russian as its source language and has its own **Outgoing target language** setting, so it can be sent to other players in English or another chosen language.
+
+### Outgoing speech behavior
+
+Messages containing Cyrillic characters are translated before their network packet is sent. Their order is preserved when multiple messages are entered quickly. Messages already written in English are sent immediately.
+
+Commands beginning with `[`, `.`, or `-` are never translated. This protects common shard and client commands from accidental modification.
+
+## Cache and controls
+
+Translations are cached on disk at:
+
+```text
+%LOCALAPPDATA%\TazUO\Translations\cache.json
+```
+
+The cache is separated by translation category, language pair, and model. The Local LLM translation page provides:
+
+- Clear controls for each category.
+- A global cache clear.
+- A per-gump **LLM** menu for forgetting or regenerating that gump's translation.
+- Queue, active-request, completion, cache-hit, and failure statistics.
+- Diagnostic logging for troubleshooting.
+
+Turning a visible-text category off restores the original text where the client retains it. Clearing a category also invalidates outstanding requests, so stale results are not written back into the cache.
+
+## Build from source
+
+Requirements:
+
+- Windows x64
+- .NET 10 SDK
+- A valid Ultima Online installation for runtime assets
+
+Build the client from the repository root:
+
+```powershell
+dotnet build src\ClassicUO.Client\ClassicUO.Client.csproj -c Debug
+```
+
+The debug client assembly is produced at:
+
+```text
+bin\Debug\net10.0\win-x64\TazUO.dll
+```
+
+Run the test suite with:
+
+```powershell
+dotnet test tests\ClassicUO.UnitTests\ClassicUO.UnitTests.csproj -c Debug
+```
+
+## Project layout
+
+- `src/ClassicUO.Client/` — client, UI, network handling, and local translation integration.
+- `src/ClassicUO.Client/Game/Managers/LocalTranslationService.cs` — OpenAI-compatible request queue, cache, and translation scenarios.
+- `tests/ClassicUO.UnitTests/` — unit tests.
+- `external/` — third-party dependencies used by the client.
+
+## Contributing
+
+Useful contributions include translation-quality fixes, additional UI text sources, cache and queue improvements, tests, documentation, and compatibility work with local OpenAI-compatible servers.
+
+Before opening a pull request:
+
+1. Keep changes focused and avoid committing local UO assets, caches, model files, or credentials.
+2. Run the build and relevant tests.
+3. Describe the text source or packet/UI path affected by the change.
+4. Include screenshots or a short reproduction path for UI-facing fixes when possible.
+
+Never commit API keys, GitHub tokens, or other secrets. Use a fine-grained token with the smallest required permissions and revoke exposed credentials immediately.
+
+## Upstream and license
+
+This project is based on TazUO, which originated as a fork of ClassicUO. Please consult [LICENSE.md](LICENSE.md) and the upstream repositories for their respective licensing and attribution requirements.

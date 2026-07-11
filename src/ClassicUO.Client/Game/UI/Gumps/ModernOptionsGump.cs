@@ -4790,7 +4790,7 @@ namespace ClassicUO.Game.UI.Gumps
                 enabled => profile.LocalTranslationItemProperties = enabled, TranslationScenario.ItemProperty);
             AddTranslationToggle("Translate books", profile.LocalTranslationBooks,
                 enabled => profile.LocalTranslationBooks = enabled, TranslationScenario.Book);
-            AddTranslationToggle("Translate outgoing Russian speech to English", profile.LocalTranslationOutgoingSpeech,
+            AddTranslationToggle("Translate outgoing Russian speech", profile.LocalTranslationOutgoingSpeech,
                 enabled => profile.LocalTranslationOutgoingSpeech = enabled, TranslationScenario.OutgoingSpeech);
             content.AddToRight(new CheckboxWithLabel("Diagnostic translation logging", 0, profile.LocalTranslationDiagnosticLogging,
                 valueChanged: enabled => profile.LocalTranslationDiagnosticLogging = enabled), true, page);
@@ -4804,6 +4804,8 @@ namespace ClassicUO.Game.UI.Gumps
                 onTextChange: (sender, e) => profile.LocalTranslationSourceLanguage = ((InputField.StbTextBox)sender).Text), true, page);
             content.AddToRight(new InputFieldWithLabel("Target language", 150, profile.LocalTranslationTargetLanguage,
                 onTextChange: (sender, e) => profile.LocalTranslationTargetLanguage = ((InputField.StbTextBox)sender).Text), true, page);
+            content.AddToRight(new InputFieldWithLabel("Outgoing target language", 150, profile.LocalTranslationOutgoingTargetLanguage,
+                onTextChange: (sender, e) => profile.LocalTranslationOutgoingTargetLanguage = ((InputField.StbTextBox)sender).Text), true, page);
             content.AddToRight(new InputFieldWithLabel("Timeout (seconds)", 80, profile.LocalTranslationTimeoutSeconds.ToString(), true,
                 (sender, e) =>
                 {

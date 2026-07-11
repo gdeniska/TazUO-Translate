@@ -117,6 +117,7 @@ namespace ClassicUO.Configuration
         public bool LocalTranslationItemProperties { get; set => SetProperty(ref field, value); } = true;
         public bool LocalTranslationBooks { get; set => SetProperty(ref field, value); } = true;
         public bool LocalTranslationOutgoingSpeech { get; set => SetProperty(ref field, value); }
+        public string LocalTranslationOutgoingTargetLanguage { get; set => SetProperty(ref field, value); } = "English";
         public string LocalTranslationEndpoint { get; set => SetProperty(ref field, value); } = "http://127.0.0.1:1234/v1/chat/completions";
         public string LocalTranslationModel { get; set => SetProperty(ref field, value); } = string.Empty;
         public string LocalTranslationApiKey { get; set => SetProperty(ref field, value); } = string.Empty;
