@@ -22,15 +22,13 @@ Every category can be enabled or disabled separately in **Options → Local LLM 
 
 ## Screenshots
 
-<p align="center">
-  <img src="docs/images/translation-settings-and-gump.png" alt="Local LLM translation settings next to a translated server gump" width="49%" />
-  <img src="docs/images/translation-settings-and-spellbook.png" alt="Translation settings and a translated spellbook tooltip" width="49%" />
-</p>
+![Local LLM translation settings next to a translated server gump](https://raw.githubusercontent.com/gdeniska/TazUO-Translate/main/docs/images/translation-settings-and-gump.png)
 
-<p align="center">
-  <img src="docs/images/translated-npc-dialogue.png" alt="Original and translated NPC dialogue in the game world" width="49%" />
-  <img src="docs/images/translated-server-message.png" alt="Original and translated server message in the game world" width="49%" />
-</p>
+![Translation settings and a translated spellbook tooltip](https://raw.githubusercontent.com/gdeniska/TazUO-Translate/main/docs/images/translation-settings-and-spellbook.png)
+
+![Original and translated NPC dialogue in the game world](https://raw.githubusercontent.com/gdeniska/TazUO-Translate/main/docs/images/translated-npc-dialogue.png)
+
+![Original and translated server message in the game world](https://raw.githubusercontent.com/gdeniska/TazUO-Translate/main/docs/images/translated-server-message.png)
 
 ## Local LLM setup
 
