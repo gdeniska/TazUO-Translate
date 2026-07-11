@@ -298,6 +298,11 @@ namespace ClassicUO.Game.UI.Gumps
 
                 case InfoBarVars.TithingPoints: return _gump.World.Player.TithingPoints.ToString();
 
+                case InfoBarVars.TranslationStatistics:
+                    TranslationQueueStatistics statistics = LocalTranslationService.Instance.GetStatistics();
+
+                    return $"Queue: {statistics.Queued}  Processing: {statistics.Processing}  Active: {statistics.InFlight}  Completed: {statistics.Completed}  Cache hits: {statistics.CacheHits}  Failed: {statistics.Failed}";
+
                 default: return "";
             }
         }

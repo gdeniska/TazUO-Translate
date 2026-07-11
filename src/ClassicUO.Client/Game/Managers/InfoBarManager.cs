@@ -133,7 +133,8 @@ namespace ClassicUO.Game.Managers
         SwingSpeedInc,
         StatsCap,
         NameNotoriety,
-        TithingPoints
+        TithingPoints,
+        TranslationStatistics
     }
 
     public class InfoBarItem
