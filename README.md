@@ -18,7 +18,7 @@ When local translation is enabled, TazUO Translate supports the following catego
 - Spellbook tooltip descriptions.
 - Outgoing Russian speech translated to a configurable target language before it is sent to the server, including regular speech, whisper, yell, emote, guild, alliance, and party messages.
 
-Every category can be enabled or disabled separately in **Options → Local LLM translation**. The outgoing-speech option is disabled by default.
+Every category can be enabled or disabled separately in **Options → TazUO Specific → Local LLM translation**. The outgoing-speech option is disabled by default.
 
 ## Screenshots
 
@@ -39,7 +39,7 @@ Every category can be enabled or disabled separately in **Options → Local LLM 
    http://127.0.0.1:1234/v1/chat/completions
    ```
 
-3. In the game, open **Options → Local LLM translation**.
+3. In the game, open **Options → TazUO Specific → Local LLM translation**.
 4. Enable **Enable local translation** and choose the categories you need.
 5. Set the endpoint, optional model name, source language, target language, timeout, and parallel-request limit.
 
